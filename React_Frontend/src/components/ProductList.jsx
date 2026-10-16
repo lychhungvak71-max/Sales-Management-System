@@ -84,6 +84,7 @@ export default function ProductList() {
         return filteredItems.slice(start, start + itemsPerPage);
     }, [filteredItems, currentPage, itemsPerPage]);
 
+    const backendUrl = import.meta.env.VITE_BACKEND_URL;
     return (
         <div className="p-6 space-y-6 bg-slate-50 min-h-screen">
             {/* Header Title & Add Button Section */}
@@ -213,7 +214,7 @@ export default function ProductList() {
                                                             src={
                                                                 item.photo.startsWith('http')
                                                                     ? item.photo
-                                                                    : `http://localhost:8000${item.photo.startsWith('/') ? '' : '/'}${item.photo}`
+                                                                    : `${backendUrl}${item.photo.startsWith('/') ? '' : '/'}${item.photo}`
                                                             }
                                                             alt={item.name}
                                                             className="w-10 h-10 rounded-xl object-cover border border-gray-200"
