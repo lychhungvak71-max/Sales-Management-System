@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -17,6 +17,7 @@ class OrderController extends Controller
             $orders = Order::orderBy('created_at', 'desc')->get();
             return response()->json(['success' => true, 'data' => $orders], 200);
         } catch (\Exception $e) {
+            Log::error('Order Index Error: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
@@ -28,7 +29,7 @@ class OrderController extends Controller
             'customer_name' => 'nullable|string',
             'customer_phone' => 'nullable|string',
             'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|string',
+            'items.*.product_id' => 'required',
             'items.*.name' => 'required|string',
             'items.*.price' => 'required|numeric',
             'items.*.quantity' => 'required|integer|min:1',
@@ -46,12 +47,18 @@ class OrderController extends Controller
             foreach ($request->items as $cartItem) {
                 $product = Product::find($cartItem['product_id']);
                 if ($product) {
-                    $newStock = max(0, $product->stock - $cartItem['quantity']);
+                    $newStock = max(0, (int)$product->stock - (int)$cartItem['quantity']);
                     $product->update(['stock' => $newStock]);
                 }
             }
 
-            $order = Order::create($request->all());
+            // បង្កើត Order ដោយកំណត់ Status ដំបូង 'Completed' ឬ 'Pending'
+            $orderData = $request->all();
+            if (!isset($orderData['status'])) {
+                $orderData['status'] = 'Completed';
+            }
+
+            $order = Order::create($orderData);
 
             return response()->json([
                 'success' => true,
@@ -59,6 +66,7 @@ class OrderController extends Controller
                 'data' => $order
             ], 201);
         } catch (\Exception $e) {
+            Log::error('Order Store Error: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
@@ -76,10 +84,9 @@ class OrderController extends Controller
                 return response()->json(['success' => false, 'message' => 'Order នេះត្រូវបានលុប ឬ Refund រួចរាល់ហើយ!'], 400);
             }
 
-            // 💡 1. បូកចំនួនស្តុកផលិតផលចូលក្នុង Database វិញស្វ័យប្រវត្តិ
+            // បូកចំនួនស្តុកផលិតផលចូលក្នុង Database វិញស្វ័យប្រវត្តិ
             if ($order->items && is_array($order->items)) {
                 foreach ($order->items as $cartItem) {
-                    // ទាញយក product_id ពី item ក្នុង order
                     $productId = $cartItem['product_id'] ?? null;
                     if ($productId) {
                         $product = Product::find($productId);
@@ -90,7 +97,6 @@ class OrderController extends Controller
                 }
             }
 
-            // 💡 2. ប្ដូរស្ថានភាព (Status) របស់ Order ទៅជា Cancelled
             $order->update(['status' => 'Cancelled']);
 
             return response()->json([
@@ -99,6 +105,7 @@ class OrderController extends Controller
                 'data' => $order
             ], 200);
         } catch (\Exception $e) {
+            Log::error('Order Refund Error: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
