@@ -20,7 +20,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'],
+    'allowed_origins' => ['http://localhost:5173/', 'https://sales-management-system-frontend-c9rv.onrender.com'],
 
     'allowed_origins_patterns' => [],
 
